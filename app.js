@@ -486,7 +486,7 @@ function applyRoleRestrictions() {
 }
 
 // --- Server persistence layer (Netlify Functions) ---
-// Note: available server functions in this project: addAssets, addEmployee, assignAsset, getAsset, getEmployees
+// Note: available server functions in this project: addAssets, addEmployee, assignAsset, getassets, getemployees
 
 // Save a single asset to the database via the addAssets Netlify function.
 // Expects: category (table name key) and asset object (fields). Returns the inserted row.
@@ -547,7 +547,7 @@ async function assignAssetServer(asset_type, asset_id, employee_id) {
 async function loadPersistedData() {
     try {
         const [assetsRes, empRes] = await Promise.all([
-            fetch('/.netlify/functions/getasset'),
+            fetch('/.netlify/functions/getassets'),
             fetch('/.netlify/functions/getemployees')
         ]);
 
