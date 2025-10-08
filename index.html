@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NV GROUP - Asset Management System</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <div class="logo-large">
+                <img src="images/nv-logo.png" alt="NV GROUP" style="max-width: 220px; height: auto;">
+            </div>
+            <div class="loading-spinner"></div>
+            <p>Loading Asset Management System...</p>
+        </div>
+    </div>
+
+    <!-- Login Page -->
+    <div id="login-page" class="page-container hidden">
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-header">
+                    <div class="company-logo">
+                        <img src="images/nv-logo.png" alt="NV GROUP" style="max-width: 165px; height: auto;">
+                    </div>
+                    <h2>Asset Management System</h2>
+                    <p>Please sign in to continue</p>
+                </div>
+                <form id="login-form" class="login-form">
+                    <div class="form-group">
+                        <label for="role" class="form-label">Select Role</label>
+                        <select id="role" name="role" class="form-control" required style="appearance: menulist; -webkit-appearance: menulist; -moz-appearance: menulist;">
+                            <option value="">Choose your role</option>
+                            <option value="admin">Administrator</option>
+                            <option value="user">User</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" id="username" name="username" class="form-control" required placeholder="Enter username (demo: admin/user)">
+                    </div>
+                    <div class="form-group">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" id="password" name="password" class="form-control" required placeholder="Enter password (demo: admin/user)">
+                    </div>
+                    <button type="submit" class="btn btn--primary btn--full-width">Sign In</button>
+                </form>
+                <div class="login-help">
+                    <p><strong>Demo Credentials:</strong></p>
+                    <p>Admin: username=admin, password=admin</p>
+                    <p>User: username=user, password=user</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="main-app" class="hidden">
+        <!-- Header -->
+        <header class="main-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <div class="company-logo">
+                        <img src="images/nv-logo.png" alt="NV GROUP" style="max-width: 100px; height: auto;">
+                    </div>
+                    <h1>Asset Management System</h1>
+                </div>
+                <div class="header-right">
+                    <span class="user-info">
+                        <span id="current-user"></span> | <span id="current-role"></span>
+                    </span>
+                    <button id="logout-btn" class="btn btn--outline btn--sm">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="main-nav">
+            <div class="nav-content">
+                <button class="nav-btn active" data-page="dashboard">Dashboard</button>
+                <button class="nav-btn" data-page="assets">Assets</button>
+                <button class="nav-btn" data-page="assignments">Assignments</button>
+                <button class="nav-btn" data-page="employees">Employees</button>
+            </div>
+        </nav>
+
+        <!-- Dashboard Page -->
+        <div id="dashboard-page" class="page-content">
+            <div class="dashboard-container">
+                <div class="dashboard-stats">
+                    <div class="stat-card">
+                        <h3>Total Assets</h3>
+                        <div class="stat-number" id="total-assets">0</div>
+                        <div class="stat-details" id="total-breakdown"></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Assigned Assets</h3>
+                        <div class="stat-number" id="assigned-assets">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Available Assets</h3>
+                        <div class="stat-number" id="available-assets">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Total Employees</h3>
+                        <div class="stat-number" id="total-employees">0</div>
+                    </div>
+                </div>
+                
+                <div class="import-status" id="import-status"></div>
+
+                <div class="dashboard-actions">
+                    <div class="action-group admin-only">
+                        <input type="file" id="excel-file-input" accept=".xlsx,.xls" style="display: none;">
+                        <button class="btn btn--primary" onclick="document.getElementById('excel-file-input').click()">
+                            📁 Import Excel File
+                        </button>
+                        <div class="dropdown export-dropdown">
+                            <button class="btn btn--secondary dropdown-toggle" onclick="toggleExportDropdown(event)" id="export-dropdown-btn">
+                                📊 Export Data ▼
+                            </button>
+                            <div class="dropdown-menu" id="export-dropdown-menu" style="display:none;">
+                                <button class="dropdown-item" onclick="exportToExcel()">Export Excel</button>
+                                <button class="dropdown-item" onclick="exportToPDF()">Export PDF</button>
+                                <button class="dropdown-item" onclick="exportToCSV()">Export CSV</button>
+                            </div>
+                        </div>
+                        <button class="btn btn--outline" onclick="clearAllData()">🗑️ Clear All Data</button>
+                        <button class="btn btn--outline" onclick="openHistoryModal()">🕘 History & Rollback</button>
+                    </div>
+                    <div class="action-group">
+                        <div class="dropdown dashboard-dropdown">
+                           <button class="btn btn--primary dropdown-toggle" onclick="toggleDashboardDropdown(event)" id="actions-dropdown">
+
+                                Actions ▼
+                            </button>
+                            <div class="dropdown-menu" id="dropdown-menu">
+                                <a href="#" class="dropdown-item" onclick="showPage('assets')">📋 View</a>
+                                <a href="#" class="dropdown-item" onclick="showPage('assignments')">🔄 Assign</a>
+                                <a href="#" class="dropdown-item" onclick="showPage('employees')">👥 Employees</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Assets Page -->
+        <div id="assets-page" class="page-content hidden">
+            <div class="page-header">
+                <h2>Asset Management</h2>
+                <div class="page-actions">
+                    <input type="search" id="asset-search" placeholder="Search assets..." class="form-control search-input">
+                    <button class="btn btn--outline admin-only" onclick="document.getElementById('excel-file-input').click()">📁 Import Excel</button>
+                    <button class="btn btn--primary admin-only" onclick="showAddAssetModal()">➕ Add Asset</button>
+                </div>
+            </div>
+            
+            <!-- Asset Category Tabs -->
+            <div class="asset-tabs">
+                <button class="tab-btn active" data-category="laptops">Laptops & Desktops</button>
+                <button class="tab-btn" data-category="monitors">TFT & Monitors</button>
+                <button class="tab-btn" data-category="printers">Printers & Scanners</button>
+                <button class="tab-btn" data-category="cameras">Cameras</button>
+                <button class="tab-btn" data-category="wifi">WiFi Devices</button>
+            </div>
+
+            <!-- Asset Tables for each category -->
+            <div id="assets-content">
+                <!-- Dynamic content will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Assignments Page -->
+        <div id="assignments-page" class="page-content hidden">
+            <div class="page-header">
+                <h2>Asset Assignments</h2>
+                <div class="page-actions">
+                    <input type="search" id="assignment-search" placeholder="Search assignments..." class="form-control search-input">
+                    <button class="btn btn--primary" onclick="showAssignAssetModal()">➕ New Assignment</button>
+                </div>
+            </div>
+            
+            <div class="assignment-sections">
+                <!-- Available Assets Section -->
+                <div class="assignment-section">
+                    <div class="section-header">
+                        <h3>Available Assets <span id="available-count" class="count-badge">0</span></h3>
+                        <div class="assignment-filters">
+                            <button class="filter-btn active" data-filter="all-available">All Available</button>
+                            <button class="filter-btn" data-filter="laptops">Laptops</button>
+                            <button class="filter-btn" data-filter="monitors">Monitors</button>
+                            <button class="filter-btn" data-filter="printers">Printers</button>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Asset Tag</th>
+                                    <th>Asset Type</th>
+                                    <th>Make/Model</th>
+                                    <th>Location</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="available-assets-table-body">
+                                <!-- Available assets will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Assigned Assets Section -->
+                <div class="assignment-section">
+                    <div class="section-header">
+                        <h3>Assigned Assets <span id="assigned-count" class="count-badge">0</span></h3>
+                        <div class="assignment-filters">
+                            <button class="filter-btn active" data-filter="all-assigned">All Assigned</button>
+                            <button class="filter-btn" data-filter="laptops">Laptops</button>
+                            <button class="filter-btn" data-filter="monitors">Monitors</button>
+                            <button class="filter-btn" data-filter="printers">Printers</button>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Asset Tag</th>
+                                    <th>Asset Type</th>
+                                    <th>Make/Model</th>
+                                    <th>User Name</th>
+                                    <th>Department</th>
+                                    <th>Location</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="assigned-assets-table-body">
+                                <!-- Assigned assets will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Employees Page -->
+        <div id="employees-page" class="page-content hidden">
+            <div class="page-header">
+                <h2>Employee Management</h2>
+                <div class="page-actions">
+                    <input type="search" id="employee-search" placeholder="Search employees..." class="form-control search-input">
+                    <button class="btn btn--primary admin-only" onclick="showAddEmployeeModal()">➕ Add Employee</button>
+                </div>
+            </div>
+            
+            <div class="employee-stats">
+                <div class="stat-small">
+                    <span class="stat-label">Auto-Extracted:</span>
+                    <span class="stat-value" id="auto-extracted-count">0</span>
+                </div>
+                <div class="stat-small">
+                    <span class="stat-label">Manual:</span>
+                    <span class="stat-value" id="manual-employees-count">0</span>
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Department</th>
+                            <th>Source</th>
+                            <th>Assets Assigned</th>
+                            <th>Last Updated</th>
+                            <th class="admin-only">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employees-table-body">
+                        <!-- Employees will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Asset Modal -->
+    <div id="add-asset-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Asset</h3>
+                <button class="modal-close" onclick="hideModal('add-asset-modal')">&times;</button>
+            </div>
+            <form id="add-asset-form" class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Asset Category</label>
+                    <select name="category" class="form-control" required>
+                        <option value="">Select Category</option>
+                        <option value="laptops">Laptops & Desktops</option>
+                        <option value="monitors">TFT & Monitors</option>
+                        <option value="printers">Printers & Scanners</option>
+                        <option value="cameras">Cameras</option>
+                        <option value="wifi">WiFi Devices</option>
+                    </select>
+                </div>
+                <div class="form-grid">
+                    <!-- Dynamic form fields will be populated here based on selected category -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn--outline" onclick="hideModal('add-asset-modal')">Cancel</button>
+                    <button type="submit" class="btn btn--primary">Add Asset</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Employee Modal -->
+    <div id="add-employee-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Employee</h3>
+                <button class="modal-close" onclick="hideModal('add-employee-modal')">&times;</button>
+            </div>
+            <form id="add-employee-form" class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" name="name" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Department</label>
+                    <input type="text" name="department" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Source</label>
+                    <select name="source" class="form-control" required>
+                        <option value="manual">Manual Entry</option>
+                        <option value="excel">Excel Import</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn--outline" onclick="hideModal('add-employee-modal')">Cancel</button>
+                    <button type="submit" class="btn btn--primary">Add Employee</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Employee Modal -->
+    <div id="edit-employee-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="edit-employee-title" aria-describedby="edit-employee-desc">
+        <div class="modal-content edit-employee-content">
+            <div class="modal-header">
+                <h3 id="edit-employee-title">Edit Employee</h3>
+                <button class="modal-close" aria-label="Close edit employee modal" onclick="hideModal('edit-employee-modal')">&times;</button>
+            </div>
+            <form id="edit-employee-form" class="modal-body">
+                <div class="form-group">
+                    <label for="edit-employee-name" class="form-label">Full Name</label>
+                    <input type="text" id="edit-employee-name" name="name" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-employee-department" class="form-label">Department</label>
+                    <input type="text" id="edit-employee-department" name="department" class="form-control" required>
+                </div>
+                <input type="hidden" id="edit-employee-id" name="employeeId">
+                <div class="modal-footer">
+                    <button type="button" class="btn btn--outline" onclick="hideModal('edit-employee-modal')">Cancel</button>
+                    <button type="submit" class="btn btn--primary">Update Employee</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Employee Confirmation Modal -->
+    <div id="delete-employee-confirmation-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="delete-employee-confirmation-title" aria-describedby="delete-employee-confirmation-desc">
+        <div class="modal-content delete-employee-confirmation-content">
+            <div class="modal-header">
+                <h3 id="delete-employee-confirmation-title">Confirm Delete</h3>
+                <button class="modal-close" aria-label="Close delete employee confirmation" onclick="hideDeleteEmployeeConfirmation()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="delete-employee-confirmation-desc">Are you sure you want to delete this employee? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn--outline" onclick="hideDeleteEmployeeConfirmation()">Cancel</button>
+                <button class="btn btn--primary" id="confirm-delete-employee-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assign Asset Modal -->
+    <div id="assign-asset-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Assign Asset</h3>
+                <button class="modal-close" onclick="hideModal('assign-asset-modal')">&times;</button>
+            </div>
+            <form id="assign-asset-form" class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Select Asset</label>
+                    <select name="assetId" class="form-control" required>
+                        <option value="">Choose an available asset</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Select Employee</label>
+                    <select name="employeeId" class="form-control" required>
+                        <option value="">Choose an employee</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Assignment Date</label>
+                    <input type="date" name="assignmentDate" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <textarea name="notes" class="form-control" rows="3" placeholder="Optional notes..."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn--outline" onclick="hideModal('assign-asset-modal')">Cancel</button>
+                    <button type="submit" class="btn btn--primary">Assign Asset</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Status Modal -->
+    <div id="edit-status-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Asset Status</h3>
+                <button class="modal-close" onclick="hideModal('edit-status-modal')">&times;</button>
+            </div>
+            <form id="edit-status-form" class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Asset</label>
+                    <input type="text" id="edit-status-asset-info" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Current Status</label>
+                    <input type="text" id="edit-status-current" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">New Status</label>
+                    <select name="newStatus" class="form-control" required>
+                        <option value="">Select Status</option>
+                        <option value="Available">Available</option>
+                        <option value="Assigned">Assigned</option>
+                        <option value="In Repair">In Repair</option>
+                        <option value="Dead">Dead</option>
+                        <option value="In Stock">In Stock</option>
+                        <option value="OK">OK</option>
+                        <option value="Damaged">Damaged</option>
+                        <option value="Under Maintenance">Under Maintenance</option>
+                    </select>
+                </div>
+                <input type="hidden" name="assetId" id="edit-status-asset-id">
+                <input type="hidden" name="assetCategory" id="edit-status-asset-category">
+                <div class="modal-footer">
+                    <button type="button" class="btn btn--outline" onclick="hideModal('edit-status-modal')">Cancel</button>
+                    <button type="submit" class="btn btn--primary">Update Status</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Import Status Modal -->
+    <div id="import-status-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Excel Import Status</h3>
+                <button class="modal-close" onclick="hideModal('import-status-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="import-progress"></div>
+                <div id="import-results"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn--primary" onclick="hideModal('import-status-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        function toggleExportDropdown(event) {
+            if (event.button !== 0) return; // Only toggle on left click
+            event.stopPropagation();
+            const menu = document.getElementById('export-dropdown-menu');
+            if (menu.style.display === 'block') {
+                menu.style.display = 'none';
+            } else {
+                menu.style.display = 'block';
+            }
+        }
+        document.addEventListener('click', function () {
+            const menu = document.getElementById('export-dropdown-menu');
+            if (menu) {
+                menu.style.display = 'none';
+            }
+        });
+    </script>
+
+    <!-- Notification Container -->
+    <div id="notification-container" class="notification-container"></div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-confirmation-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="delete-confirmation-title" aria-describedby="delete-confirmation-desc">
+        <div class="modal-content delete-confirmation-content">
+            <div class="modal-header">
+                <h3 id="delete-confirmation-title">Confirm Delete</h3>
+                <button class="modal-close" aria-label="Close delete confirmation" onclick="hideDeleteConfirmation()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="delete-confirmation-desc">Are you sure you want to delete this asset? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn--outline" onclick="hideDeleteConfirmation()">Cancel</button>
+                <button class="btn btn--primary" id="confirm-delete-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unassign Confirmation Modal -->
+    <div id="unassign-confirmation-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="unassign-confirmation-title" aria-describedby="unassign-confirmation-desc">
+        <div class="modal-content unassign-confirmation-content">
+            <div class="modal-header">
+                <h3 id="unassign-confirmation-title">Confirm Unassign</h3>
+                <button class="modal-close" aria-label="Close unassign confirmation" onclick="hideUnassignConfirmation()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="unassign-confirmation-desc">Are you sure you want to unassign this asset? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn--outline" onclick="hideUnassignConfirmation()">Cancel</button>
+                <button class="btn btn--primary" id="confirm-unassign-btn">Unassign</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Asset Modal -->
+    <div id="edit-asset-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="edit-asset-title" aria-describedby="edit-asset-desc">
+        <div class="modal-content edit-asset-content">
+            <div class="modal-header">
+                <h3 id="edit-asset-title">Edit Asset</h3>
+                <button class="modal-close" aria-label="Close edit asset modal" onclick="hideModal('edit-asset-modal')">&times;</button>
+            </div>
+            <form id="edit-asset-form" class="modal-body">
+                <div id="edit-asset-fields-container" class="form-grid">
+                    <!-- Dynamic form fields will be generated here based on asset category -->
+                </div>
+                <input type="hidden" id="edit-asset-id" name="assetId">
+                <input type="hidden" id="edit-asset-category" name="category">
+                <div class="modal-footer">
+                    <button type="button" class="btn btn--outline" onclick="hideModal('edit-asset-modal')">Cancel</button>
+                    <button type="submit" class="btn btn--primary">Update Asset</button>
+                </div>
+            </form>
+        </div>
+    </div>
+<!-- Import and Change History Modal -->
+    <div id="history-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="history-modal-title" aria-describedby="history-modal-desc">
+       <div class="modal-content history-modal-content">
+            <div class="modal-header">
+                <h3 id="history-modal-title">Import and Change History</h3>
+                <button class="modal-close" aria-label="Close history modal" onclick="hideModal('history-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <section>
+                    <h4>Import History</h4>
+                   <ul id="import-history-list" class="history-list">
+                       <!-- Import history entries will be dynamically populated here -->
+                    </ul>
+                </section>
+                <section>
+                    <h4>Change History</h4>
+                    <ul id="change-history-list" class="history-list">
+                        <!-- Change history entries will be dynamically populated here -->
+                    </ul>
+                </section>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn--outline" onclick="hideModal('history-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
