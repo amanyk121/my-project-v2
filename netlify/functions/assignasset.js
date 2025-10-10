@@ -2,14 +2,14 @@ import { Client } from "pg";
 
 export async function handler(event) {
   if (event.httpMethod !== "POST") {
-    return { statusCode: 405, body: "Method not allowed" };
+    return { statusCode: 405, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
 
   const data = JSON.parse(event.body || "{}");
   const { asset_type, asset_id, employee_id } = data;
 
   if (!asset_type || !asset_id || !employee_id) {
-    return { statusCode: 400, body: "Missing required fields" };
+    return { statusCode: 400, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Missing required fields' }) };
   }
 
   const client = new Client({
@@ -36,12 +36,14 @@ export async function handler(event) {
 
     return {
       statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ success: true }),
     };
   } catch (error) {
     console.error("Error assigning asset:", error);
     return {
       statusCode: 500,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ error: error.message }),
     };
   }

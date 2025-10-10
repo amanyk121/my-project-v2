@@ -20,6 +20,7 @@ export async function handler() {
 
     return {
       statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         laptops: laptops.rows,
         monitors: monitors.rows,
@@ -32,6 +33,7 @@ export async function handler() {
     console.error("Error fetching assets:", error);
     return {
       statusCode: 500,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ error: error.message }),
     };
   }
