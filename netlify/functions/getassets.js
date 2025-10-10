@@ -2,7 +2,7 @@ import { Client } from "pg";
 
 export async function handler() {
   // Early environment validation to provide clearer errors in function logs
-  const dbUrl = process.env.DATABASE_URL || '';
+  const dbUrl = process.env.DATABASE_URL || process.env.NETLIFY_DATABASE_URL || process.env.NETLIFY_DATABASE_URL_UNPOOLED || '';
   if (!dbUrl) {
     console.error('Missing DATABASE_URL environment variable');
     return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Missing DATABASE_URL. Configure DATABASE_URL in Netlify site environment variables.' }) };
