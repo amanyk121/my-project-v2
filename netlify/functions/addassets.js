@@ -31,16 +31,23 @@ export async function handler(event) {
     await client.connect();
 
     // Build dynamic INSERT query
+    // Whitelist allowed categories/tables to prevent SQL injection and typos
+    const allowedTables = ['laptops', 'monitors', 'printers', 'cameras', 'wifi'];
+    if (!allowedTables.includes(category)) {
+      await client.end();
+      return { statusCode: 400, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Invalid category' }) };
+    }
+
     const columns = Object.keys(fields);
     const values = Object.values(fields);
     const placeholders = columns.map((_, i) => `$${i + 1}`);
 
-    const query = `
-      INSERT INTO ${category} (${columns.join(", ")})
-      VALUES (${placeholders.join(", ")})
-      RETURNING *;
-    `;
+    // Quote identifiers to handle column names with spaces or uppercase letters
+    const quotedColumns = columns.map(col => `"${col.replace(/"/g, '""')}"`);
 
+    const query = `INSERT INTO "${category.replace(/"/g, '""')}" (${quotedColumns.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING *;`;
+
+    // Execute query
     const result = await client.query(query, values);
     await client.end();
 
