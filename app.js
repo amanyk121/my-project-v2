@@ -2033,26 +2033,22 @@ function handleConfirmDelete() {
 }
 // Missing function 1: assignAsset
 function assignAsset(id, category) {
-    populateAssignAssetModal();
-    
-    // Wait for the modal to be populated before setting the value
+    // Open the modal first (showModal will populate the selects) then set the selection
+    showModal('assign-asset-modal');
+
+    // Wait briefly so populateAssignAssetModal (called inside showModal) finishes
     setTimeout(() => {
         const assetSelect = document.querySelector('#assign-asset-form [name="assetId"]');
         if (assetSelect) {
-            // Find the option that matches this asset
-            const assetOption = Array.from(assetSelect.options).find(option => 
-                option.value === `${category}:${id}`
-            );
-            
-            if (assetOption) {
-                assetSelect.value = assetOption.value;
+            const desiredValue = `${category}:${id}`;
+            const hasOption = Array.from(assetSelect.options).some(option => option.value === desiredValue);
+            if (hasOption) {
+                assetSelect.value = desiredValue;
             } else {
                 console.warn('Asset not found in available assets:', id, category);
             }
         }
-    }, 100);
-    
-    showModal('assign-asset-modal');
+    }, 60);
 }
 
 // Missing function 2: changeAssetStatus  
@@ -2061,26 +2057,21 @@ function changeAssetStatus(id, category) {
 }
 
 function quickAssignAsset(id, category) {
-    populateAssignAssetModal();
-    
-    // Wait for the modal to be populated before setting the value
+    // Open the modal first (it will populate the select), then set the selection
+    showModal('assign-asset-modal');
+
     setTimeout(() => {
         const assetSelect = document.querySelector('#assign-asset-form [name="assetId"]');
         if (assetSelect) {
-            // Find the option that matches this asset
-            const assetOption = Array.from(assetSelect.options).find(option => 
-                option.value === `${category}:${id}`
-            );
-            
-            if (assetOption) {
-                assetSelect.value = assetOption.value;
+            const desiredValue = `${category}:${id}`;
+            const hasOption = Array.from(assetSelect.options).some(option => option.value === desiredValue);
+            if (hasOption) {
+                assetSelect.value = desiredValue;
             } else {
                 console.warn('Asset not found in available assets:', id, category);
             }
         }
-    }, 100);
-    
-    showModal('assign-asset-modal');
+    }, 60);
 }
 
 let pendingUnassignId = null;
