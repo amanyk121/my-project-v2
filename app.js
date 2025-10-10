@@ -495,7 +495,15 @@ async function saveAsset(category, asset) {
         const res = await fetch('/.netlify/functions/addassets', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ category, ...asset }),
+            // Avoid sending client-generated string IDs for tables that use integer primary keys.
+            // Send all fields except `id` so the DB can assign its own primary key.
+            body: JSON.stringify({ category, ...(() => {
+                const copy = { ...asset };
+                if (copy.id && typeof copy.id === 'string' && !/^[0-9]+$/.test(copy.id)) {
+                    delete copy.id;
+                }
+                return copy;
+            })() }),
         });
 
         const result = await res.json();

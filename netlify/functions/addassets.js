@@ -53,12 +53,14 @@ export async function handler(event) {
         .toLowerCase();
     };
 
-    // Get actual columns for the target table from information_schema
+    // Get actual columns and types for the target table from information_schema
     const tableColsRes = await client.query(
-      `SELECT column_name FROM information_schema.columns WHERE table_name = $1`,
+      `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = $1`,
       [category]
     );
     const tableCols = new Set(tableColsRes.rows.map(r => r.column_name));
+    const tableColTypes = {};
+    tableColsRes.rows.forEach(r => { tableColTypes[r.column_name] = r.data_type; });
 
     // Header mapping: common human-friendly headers -> candidate DB column names
     const headerMapping = {
@@ -91,6 +93,21 @@ export async function handler(event) {
       const found = candidates.find(c => tableCols.has(c));
       return { original, db: found || normalize(col), tried: candidates };
     });
+
+    // If the DB has an integer 'id' column, drop the incoming string 'id' to let DB assign it
+    if (tableCols.has('id') && ['integer','bigint','smallint'].includes((tableColTypes['id'] || '').toLowerCase())) {
+      // Remove any mapped column that resolved to 'id' and the original contained non-integer-like value
+      // (we just avoid inserting string IDs like 'CAMERAS...' into integer PK)
+      for (let i = mappedColumns.length - 1; i >= 0; i--) {
+        if (mappedColumns[i].db === 'id') {
+          // remove the corresponding field and value
+          mappedColumns.splice(i, 1);
+          columns.splice(i, 1);
+          values.splice(i, 1);
+          placeholders.splice(i, 1);
+        }
+      }
+    }
 
     // Check for missing columns in the DB (those that we couldn't map)
     const missing = mappedColumns.filter(m => !tableCols.has(m.db));
