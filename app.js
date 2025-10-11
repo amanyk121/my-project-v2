@@ -50,6 +50,13 @@ let currentAssetCategory = 'laptops';
 let importHistory = [];
 const MAX_HISTORY_ENTRIES = 10;
 
+// Prevent duplicate submissions
+let isSubmittingAsset = false;
+let isSubmittingEmployee = false;
+
+// Debug panel element reference
+let debugPanel = null;
+
 // Change tracking for rollback
 let changeHistory = [];
 const MAX_CHANGE_HISTORY = 50;
@@ -464,6 +471,8 @@ document.addEventListener('click', (e) => {
     if (assignmentDateInput) {
         assignmentDateInput.value = today;
     }
+    // Create debug panel toggle
+    createDebugPanel();
     
     console.log('Event listeners setup complete');
 }
@@ -1167,7 +1176,7 @@ function updateAssignedAssetsTable() {
 
 function createAssetRow(asset, category, config, type) {
     const row = document.createElement('tr');
-    const rowId = `${category}-${asset.id}`;
+    const rowId = `${category}-${String(asset.id)}`;
     row.dataset.rowId = rowId;
     
     // Get asset details based on category
@@ -1189,7 +1198,7 @@ function createAssetRow(asset, category, config, type) {
             <td>${location}</td>
             <td><span class="status-badge status-${statusClass}">${status}</span></td>
             <td>
-                <button class="action-btn action-btn--assign" onclick="quickAssignAsset('${asset.id}', '${category}')">Assign</button>
+                <button class="action-btn action-btn--assign" onclick="quickAssignAsset('${String(asset.id)}', '${category}')">Assign</button>
                 ${ROLE_PERMISSIONS[currentRole]?.can_change_status ? 
                     `<button class="action-btn action-btn--status" onclick="editAssetStatus('${asset.id}', '${category}')">Status</button>` : ''}
             </td>
@@ -1205,7 +1214,7 @@ function createAssetRow(asset, category, config, type) {
             <td>${location}</td>
             <td><span class="status-badge status-${statusClass}">${status}</span></td>
             <td>
-                <button class="action-btn action-btn--unassign" onclick="unassignAsset('${asset.id}', '${category}')">Unassign</button>
+                <button class="action-btn action-btn--unassign" onclick="unassignAsset('${String(asset.id)}', '${category}')">Unassign</button>
                 ${ROLE_PERMISSIONS[currentRole]?.can_change_status ? 
                     `<button class="action-btn action-btn--status" onclick="editAssetStatus('${asset.id}', '${category}')">Status</button>` : ''}
             </td>
@@ -1493,7 +1502,7 @@ function processExcelSheet(worksheet, sheetName) {
         const processedAssets = data.map((row, index) => {
             if (!row || row.every(cell => !cell)) return null;
             
-            const asset = { id: `${config.key.toUpperCase()}${Date.now()}${index}` };
+            const asset = { id: String(`${config.key.toUpperCase()}${Date.now()}${index}`) };
             
             config.columns.forEach((column, colIndex) => {
                 asset[column] = row[colIndex] || '';
@@ -1538,7 +1547,9 @@ function mergeAssets(existingAssets, newAssets, config) {
         skippedAssets: 0
     };
     
-    const mergedAssets = [...existingAssets];
+    // Ensure existing assets have string ids
+    const normalizedExisting = existingAssets.map(a => ({ ...a, id: a.id !== undefined ? String(a.id) : String(`AUTOGEN_${Date.now()}${Math.random().toString(36).slice(2,6)}`) }));
+    const mergedAssets = [...normalizedExisting];
     
     newAssets.forEach(newAsset => {
         // Find existing asset by key fields
@@ -1562,7 +1573,7 @@ function mergeAssets(existingAssets, newAssets, config) {
             }
         }
         
-        if (existingAsset) {
+    if (existingAsset) {
             // Asset exists - merge the data
             let hasConflict = false;
             
@@ -1591,16 +1602,20 @@ function mergeAssets(existingAssets, newAssets, config) {
                     existingAsset[key] = newAsset[key];
                 }
             });
+            // Ensure id is normalized to string on merge
+            existingAsset.id = existingAsset.id !== undefined ? String(existingAsset.id) : (newAsset.id !== undefined ? String(newAsset.id) : String(`AUTOGEN_${Date.now()}`));
             
             mergeResults.updatedAssets++;
         } else {
             // New asset - add to merged array
+            // Normalize id for new assets as string
+            newAsset.id = newAsset.id !== undefined ? String(newAsset.id) : String(`${config.key.toUpperCase()}${Date.now()}${Math.random().toString(36).slice(2,6)}`);
             mergedAssets.push(newAsset);
             mergeResults.newAssets++;
         }
     });
     
-    return {
+        return {
         mergedAssets: mergedAssets,
         results: mergeResults
     };
@@ -1794,6 +1809,17 @@ async function handleAddAsset(e) {
         return;
     }
 
+    if (isSubmittingAsset) {
+        showWarning('Please wait a moment before adding another asset.');
+        return;
+    }
+    isSubmittingAsset = true;
+    // disable the submit button visually
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.classList && submitBtn.classList.add('disabled'); toggleButtonSpinner(submitBtn, true); }
+    // re-enable after 2s
+    setTimeout(() => { isSubmittingAsset = false; if (submitBtn) { submitBtn.disabled = false; submitBtn.classList && submitBtn.classList.remove('disabled'); toggleButtonSpinner(submitBtn, false); } }, 2000);
+
     const formData = new FormData(e.target);
     const category = formData.get('category');
 
@@ -1860,6 +1886,25 @@ async function handleAddAsset(e) {
         hideModal('add-asset-modal');
         e.target.reset();
         showWarning('Asset saved locally. Server persistence failed.');
+    }
+}
+
+// Toggle a small spinner indicator inside a button
+function toggleButtonSpinner(button, show) {
+    if (!button) return;
+    button.classList.toggle('loading', !!show);
+    let spinner = button.querySelector('.btn-spinner');
+    if (show) {
+        if (!spinner) {
+            spinner = document.createElement('span');
+            spinner.className = 'btn-spinner';
+            spinner.setAttribute('aria-hidden', 'true');
+            spinner.style.marginLeft = '8px';
+            spinner.innerHTML = '⏳';
+            button.appendChild(spinner);
+        }
+    } else {
+        if (spinner) spinner.remove();
     }
 }
 
@@ -2178,6 +2223,7 @@ function populateAssignAssetModal() {
     
     // Populate ONLY available assets
     assetSelect.innerHTML = '<option value="">Choose an available asset</option>';
+    console.log('[populateAssignAssetModal] assetsData snapshot (ids normalized):', Object.keys(assetsData).reduce((acc, k) => { acc[k] = (assetsData[k] || []).map(a=>String(a.id)); return acc; }, {}));
     Object.entries(assetsData).forEach(([category, assets]) => {
         const config = Object.values(EXCEL_SHEETS).find(s => s.key === category);
         
@@ -2185,8 +2231,11 @@ function populateAssignAssetModal() {
             const assetTag = getAssetTag(asset, category);
             const makeModel = getMakeModel(asset, category);
             
+            // Ensure asset id used for option is a string
+            asset.id = asset.id !== undefined ? String(asset.id) : String(`${category.toUpperCase()}${Date.now()}${Math.random().toString(36).slice(2,6)}`);
+            console.log('[populateAssignAssetModal] adding option for asset object:', category, asset);
             const option = document.createElement('option');
-            option.value = `${category}:${asset.id}`;
+            option.value = `${category}:${String(asset.id)}`;
             option.textContent = `${config?.displayName || category} - ${assetTag} (${makeModel})`;
             assetSelect.appendChild(option);
         });
@@ -2224,9 +2273,20 @@ async function handleAssignAsset(e) {
     }
     
     const [category, id] = assetId.split(':');
-    const asset = assetsData[category] ? assetsData[category].find(a => a.id === id) : null;
-    const employee = employees.find(e => e.id === employeeId);
+    const asset = assetsData[category] ? assetsData[category].find(a => String(a.id) === String(id)) : null;
+    const employee = employees.find(e => String(e.id) === String(employeeId));
     console.log('[handleAssignAsset] resolved:', { category, id, assetFound: !!asset, employeeFound: !!employee });
+
+    if (!asset) {
+        console.warn('[handleAssignAsset] selected asset not found in local data; refreshing may help');
+        showError('Selected asset not found locally. Please refresh the page and try again.', NOTIFICATION_DURATION.MEDIUM);
+        return;
+    }
+    if (!employee) {
+        console.warn('[handleAssignAsset] selected employee not found in local data; refreshing may help');
+        showError('Selected employee not found locally. Please refresh the page and try again.', NOTIFICATION_DURATION.MEDIUM);
+        return;
+    }
     
     if (asset && employee) {
         const config = Object.values(EXCEL_SHEETS).find(s => s.key === category);
@@ -2329,6 +2389,145 @@ function updateEmployeesTable() {
     if (manualEl) manualEl.textContent = manual;
 }
 
+// Debug panel: shows assets & employee ids for quick copying
+function createDebugPanel() {
+    if (document.getElementById('debug-panel')) return;
+    const container = document.getElementById('debug-panel-root') || document.body;
+    const panel = document.createElement('div');
+    panel.id = 'debug-panel';
+    panel.classList.add('collapsed'); // start collapsed by default
+
+    const header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.alignItems = 'center';
+    header.style.justifyContent = 'space-between';
+
+    const title = document.createElement('div');
+    title.className = 'debug-title';
+    title.textContent = 'Debug: Assets & Employees';
+    title.style.cursor = 'pointer';
+    title.onclick = () => {
+        panel.classList.toggle('collapsed');
+    };
+
+    const controls = document.createElement('div');
+    controls.className = 'debug-controls';
+
+    const refreshBtn = document.createElement('button');
+    refreshBtn.textContent = 'Refresh';
+    refreshBtn.onclick = () => updateDebugPanel();
+    controls.appendChild(refreshBtn);
+
+    header.appendChild(title);
+    header.appendChild(controls);
+
+    const content = document.createElement('div');
+    content.id = 'debug-panel-content';
+
+    panel.appendChild(header);
+    panel.appendChild(content);
+    container.appendChild(panel);
+
+    debugPanel = panel;
+    updateDebugPanel();
+}
+
+function updateDebugPanel() {
+    const content = document.getElementById('debug-panel-content');
+    if (!content) return;
+    content.innerHTML = '';
+
+    // Assets
+    const assetsHeader = document.createElement('div');
+    assetsHeader.style.fontWeight = '600';
+    assetsHeader.textContent = 'Assets:';
+    content.appendChild(assetsHeader);
+
+    Object.entries(assetsData).forEach(([category, assets]) => {
+        const catDiv = document.createElement('div');
+        catDiv.style.marginBottom = '6px';
+        catDiv.innerHTML = `<div style="font-weight:500">${category} (${assets.length})</div>`;
+        assets.forEach(a => {
+            const line = document.createElement('div');
+            const idText = document.createElement('span');
+            idText.textContent = String(a.id || '[no-id]');
+            idText.style.marginRight = '6px';
+            const copyBtn = document.createElement('button');
+            copyBtn.textContent = 'Copy';
+            copyBtn.style.marginLeft = '6px';
+            copyBtn.onclick = () => { navigator.clipboard && navigator.clipboard.writeText(String(a.id || '')); showInfo('Copied id to clipboard'); };
+            line.appendChild(idText);
+            line.appendChild(copyBtn);
+            catDiv.appendChild(line);
+        });
+        content.appendChild(catDiv);
+    });
+
+    // Employees
+    const empHeader = document.createElement('div');
+    empHeader.style.fontWeight = '600';
+    empHeader.textContent = 'Employees:';
+    content.appendChild(empHeader);
+
+    employees.forEach(emp => {
+        const line = document.createElement('div');
+        const idText = document.createElement('span');
+        idText.textContent = String(emp.id || '[no-id]');
+        idText.style.marginRight = '6px';
+        const copyBtn = document.createElement('button');
+        copyBtn.textContent = 'Copy';
+        copyBtn.style.marginLeft = '6px';
+        copyBtn.onclick = () => { navigator.clipboard && navigator.clipboard.writeText(String(emp.id || '')); showInfo('Copied id to clipboard'); };
+        line.appendChild(idText);
+        line.appendChild(copyBtn);
+        content.appendChild(line);
+    });
+
+    // Add Assign-by-ID quick controls
+    const assignSection = document.createElement('div');
+    assignSection.id = 'assign-by-id';
+    assignSection.style.marginTop = '8px';
+
+    const assetInput = document.createElement('input');
+    assetInput.placeholder = 'asset (category:id) e.g. cameras:1';
+    assetInput.id = 'debug-assign-asset';
+    assignSection.appendChild(assetInput);
+
+    const empInput = document.createElement('input');
+    empInput.placeholder = 'employee id e.g. EMP123';
+    empInput.id = 'debug-assign-employee';
+    assignSection.appendChild(empInput);
+
+    const assignBtn = document.createElement('button');
+    assignBtn.textContent = 'Assign (manual)';
+    assignBtn.onclick = async () => {
+        const val = document.getElementById('debug-assign-asset').value.trim();
+        const emp = document.getElementById('debug-assign-employee').value.trim();
+        if (!val || !emp) { showError('Please provide both asset and employee ids for manual assign.', NOTIFICATION_DURATION.SHORT); return; }
+        const parts = val.split(':');
+        if (parts.length !== 2) { showError('Asset must be in format category:id (e.g. cameras:1)'); return; }
+        const [category, id] = parts;
+        showInfo('Attempting manual assign...', NOTIFICATION_DURATION.SHORT);
+        const ok = await assignAssetServer(category, id, emp);
+        if (ok) {
+            showSuccess('Manual assign succeeded (server returned success).');
+        } else {
+            showWarning('Manual assign failed (server unreachable or error). Check console for details.');
+        }
+        updateDebugPanel();
+    };
+    assignSection.appendChild(assignBtn);
+
+    content.appendChild(assignSection);
+}
+
+// Manual assign helper exposed for debug panel
+async function manualAssignFromDebug(category, id, employeeId) {
+    if (!category || !id || !employeeId) return false;
+    return await assignAssetServer(category, id, employeeId);
+}
+
+
 function handleEmployeeSearch(e) {
     const searchTerm = e.target.value.toLowerCase();
     const tableRows = document.querySelectorAll('#employees-table-body tr');
@@ -2345,6 +2544,15 @@ async function handleAddEmployee(e) {
         showError('Only administrators can add employees.');
         return;
     }
+
+    if (isSubmittingEmployee) {
+        showWarning('Please wait a moment before adding another employee.');
+        return;
+    }
+    isSubmittingEmployee = true;
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.classList && submitBtn.classList.add('disabled'); toggleButtonSpinner(submitBtn, true); }
+    setTimeout(() => { isSubmittingEmployee = false; if (submitBtn) { submitBtn.disabled = false; submitBtn.classList && submitBtn.classList.remove('disabled'); toggleButtonSpinner(submitBtn, false); } }, 2000);
 
     const formData = new FormData(e.target);
 
@@ -2518,6 +2726,45 @@ function showModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.classList.remove('hidden');
+
+        // Focus management: find first focusable element and focus it
+        const focusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (focusable) {
+            focusable.focus();
+        }
+
+        // Trap focus within modal
+        const focusableElements = Array.from(modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'));
+        const firstFocusable = focusableElements[0];
+        const lastFocusable = focusableElements[focusableElements.length - 1];
+
+        function handleKeyDown(e) {
+            if (e.key === 'Escape') {
+                hideModal(modalId);
+            }
+            if (e.key === 'Tab') {
+                if (focusableElements.length === 0) {
+                    e.preventDefault();
+                    return;
+                }
+                if (e.shiftKey) { // shift + tab
+                    if (document.activeElement === firstFocusable) {
+                        e.preventDefault();
+                        lastFocusable.focus();
+                    }
+                } else { // tab
+                    if (document.activeElement === lastFocusable) {
+                        e.preventDefault();
+                        firstFocusable.focus();
+                    }
+                }
+            }
+        }
+
+        // Attach to modal so we can remove later
+        modal.__nv_handleKeyDown = handleKeyDown;
+        modal.addEventListener('keydown', handleKeyDown);
+
         if (modalId === 'assign-asset-modal') {
             populateAssignAssetModal();
         }
@@ -2528,6 +2775,11 @@ function hideModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.classList.add('hidden');
+        // Remove focus trap listener
+        if (modal.__nv_handleKeyDown) {
+            modal.removeEventListener('keydown', modal.__nv_handleKeyDown);
+            delete modal.__nv_handleKeyDown;
+        }
     }
 }
 

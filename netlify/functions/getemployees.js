@@ -24,14 +24,14 @@ export async function handler() {
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(res.rows),
+      body: JSON.stringify({ success: true, data: res.rows }),
     };
   } catch (err) {
     console.error("Error fetching employees:", err);
     return {
       statusCode: 500,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: err.message }),
+      body: JSON.stringify({ success: false, error: err.message }),
     };
   }
 }

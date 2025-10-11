@@ -32,20 +32,20 @@ export async function handler() {
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      body: JSON.stringify({ success: true, data: {
         laptops: laptops.rows,
         monitors: monitors.rows,
         printers: printers.rows,
         cameras: cameras.rows,
         wifi: wifi.rows,
-      }),
+      }}),
     };
   } catch (error) {
     console.error("Error fetching assets:", error);
     return {
       statusCode: 500,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: error.message }),
+      body: JSON.stringify({ success: false, error: error.message }),
     };
   }
 }

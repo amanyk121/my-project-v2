@@ -94,17 +94,36 @@ export async function handler(event) {
       return { original, db: found || normalize(col), tried: candidates };
     });
 
-    // If the DB has an integer 'id' column, drop the incoming string 'id' to let DB assign it
+    // If the DB has an integer 'id' column, map or drop incoming string 'id' values
+    // Prefer mapping to `external_id` when the table has that column; otherwise drop
+    const warnings = [];
     if (tableCols.has('id') && ['integer','bigint','smallint'].includes((tableColTypes['id'] || '').toLowerCase())) {
-      // Remove any mapped column that resolved to 'id' and the original contained non-integer-like value
-      // (we just avoid inserting string IDs like 'CAMERAS...' into integer PK)
       for (let i = mappedColumns.length - 1; i >= 0; i--) {
-        if (mappedColumns[i].db === 'id') {
-          // remove the corresponding field and value
-          mappedColumns.splice(i, 1);
-          columns.splice(i, 1);
-          values.splice(i, 1);
-          placeholders.splice(i, 1);
+        const m = mappedColumns[i];
+        if (m.db === 'id') {
+          const origKey = m.original;
+          const origValue = fields[origKey];
+          const valueStr = origValue === undefined || origValue === null ? '' : String(origValue).trim();
+          const isIntLike = /^[0-9]+$/.test(valueStr);
+
+          if (isIntLike) {
+            // it's numeric-like, keep as id (DB will accept integer)
+            continue;
+          }
+
+          // Non-numeric incoming id: try to preserve it in `external_id` if available
+          if (tableCols.has('external_id')) {
+            // remap the DB column target for this field to external_id
+            mappedColumns[i].db = 'external_id';
+            warnings.push({ action: 'mapped_id_to_external_id', provided: origKey, value: valueStr });
+          } else {
+            // No external_id column - drop the incoming id to let DB assign its PK
+            mappedColumns.splice(i, 1);
+            columns.splice(i, 1);
+            values.splice(i, 1);
+            placeholders.splice(i, 1);
+            warnings.push({ action: 'dropped_id', provided: origKey, reason: 'DB id is integer and incoming value not integer-like' });
+          }
         }
       }
     }
@@ -131,10 +150,13 @@ export async function handler(event) {
     const result = await client.query(query, values);
     await client.end();
 
+    const responseBody = { success: true, inserted: result.rows[0] };
+    if (warnings.length > 0) responseBody.warnings = warnings;
+
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ success: true, inserted: result.rows[0] }),
+      body: JSON.stringify(responseBody),
     };
   } catch (error) {
     console.error("Error inserting asset:", error);

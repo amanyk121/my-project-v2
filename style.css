@@ -144,6 +144,36 @@
   --container-xl: 1280px;
 }
 
+/* Additional small UI helpers */
+
+/* Disabled/Loading button styles */
+.btn.disabled,
+.action-btn.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(10%);
+}
+
+.btn.loading {
+  pointer-events: none;
+}
+
+.btn-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  vertical-align: middle;
+  font-size: 12px;
+}
+
+/* Modal focus outline improvements */
+.modal :focus {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+
 /* Dark mode colors */
 @media (prefers-color-scheme: dark) {
   :root {
