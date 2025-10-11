@@ -439,6 +439,17 @@ function setupEventListeners() {
         }
     });
     
+    // Delegate clicks for manage buttons in generated tables (toggle dropdown menu)
+    document.addEventListener('click', (e) => {
+        if (e.target && e.target.classList && e.target.classList.contains('action-btn--manage')) {
+            e.stopPropagation();
+            const menu = e.target.nextElementSibling;
+            if (menu && menu.classList.contains('dropdown-menu')) {
+                menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+            }
+        }
+    });
+    
 // Modal close handlers
 document.addEventListener('click', (e) => {
     if (e.target.classList.contains('modal')) {
@@ -1199,6 +1210,10 @@ function createAssetRow(asset, category, config, type) {
             </td>
         `;
     }
+    // Debug: log the asset and its fields when generating the row
+    try {
+        console.log('[render row]', category, asset.id, asset);
+    } catch (e) { /* ignore logging errors */ }
     
     return row;
 }
@@ -1245,6 +1260,29 @@ function getLocation(asset, category) {
     if (category === 'cameras') return asset['Location '] || 'N/A';
     if (category === 'wifi') return 'N/A';
     return 'N/A';
+}
+
+// Helper to get an asset field value by trying multiple normalized key variants
+function getAssetField(asset, columnName) {
+    if (!asset || !columnName) return '';
+    // Direct hit
+    if (asset[columnName] !== undefined) return asset[columnName];
+
+    // Try common normalized variants
+    const normalize = (s) => s.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const target = normalize(columnName);
+
+    // Build map of normalized key -> actual key
+    for (const key of Object.keys(asset)) {
+        if (normalize(key) === target) return asset[key];
+    }
+
+    // Try uppercase/lowercase
+    if (asset[columnName.toUpperCase()] !== undefined) return asset[columnName.toUpperCase()];
+    if (asset[columnName.toLowerCase()] !== undefined) return asset[columnName.toLowerCase()];
+
+    // Fallback: return empty string
+    return '';
 }
 
 // Filter assignment sections
@@ -1709,12 +1747,13 @@ function showAssetCategory(category) {
                         return `
                             <tr data-row-id="${category}-${asset.id}">
                                 ${columns.map(column => {
-                                    if (column === 'Status' || column === 'status') {
-                                        return `<td><span class="status-badge status-${statusClass}">${displayStatus}</span></td>`;
-                                    } else {
-                                        return `<td title="${column}: ${asset[column]}">${asset[column] || ''}</td>`;
-                                    }
-                                }).join('')}
+                                            const cellValue = getAssetField(asset, column) || '';
+                                            if (column === 'Status' || column === 'status') {
+                                                return `<td><span class="status-badge status-${statusClass}">${displayStatus}</span></td>`;
+                                            } else {
+                                                return `<td title="${column}: ${cellValue}">${cellValue}</td>`;
+                                            }
+                                        }).join('')}
                                 <td>${actionsHtml}</td>
                             </tr>
                         `;
@@ -2160,6 +2199,12 @@ function populateAssignAssetModal() {
         option.textContent = `${employee.name} (${employee.department})`;
         employeeSelect.appendChild(option);
     });
+
+    // Debug: log what was populated
+    try {
+        console.log('[populateAssignAssetModal] asset options:', Array.from(assetSelect.options).map(o=>o.value));
+        console.log('[populateAssignAssetModal] employee options:', Array.from(employeeSelect.options).map(o=>o.value));
+    } catch (e) {}
 }
 
 async function handleAssignAsset(e) {
@@ -2169,6 +2214,7 @@ async function handleAssignAsset(e) {
     const employeeId = formData.get('employeeId');
     const assignmentDate = formData.get('assignmentDate');
     const notes = formData.get('notes');
+    console.log('[handleAssignAsset] form values:', { assetId, employeeId, assignmentDate, notes });
     console.log('handleAssignAsset invoked with', { assetId, employeeId, assignmentDate, notes });
     
     if (!assetId || !employeeId) {
