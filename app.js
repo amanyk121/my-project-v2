@@ -545,6 +545,7 @@ async function saveAsset(category, asset) {
 // Assign an asset using the assignAsset Netlify function. Updates DB and returns success flag.
 async function assignAssetServer(asset_type, asset_id, employee_id) {
     try {
+        console.log('[assignAssetServer] calling server', { asset_type, asset_id, employee_id });
         const res = await fetch('/.netlify/functions/assignasset', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2223,8 +2224,9 @@ async function handleAssignAsset(e) {
     }
     
     const [category, id] = assetId.split(':');
-    const asset = assetsData[category].find(a => a.id === id);
+    const asset = assetsData[category] ? assetsData[category].find(a => a.id === id) : null;
     const employee = employees.find(e => e.id === employeeId);
+    console.log('[handleAssignAsset] resolved:', { category, id, assetFound: !!asset, employeeFound: !!employee });
     
     if (asset && employee) {
         const config = Object.values(EXCEL_SHEETS).find(s => s.key === category);
@@ -2251,8 +2253,10 @@ async function handleAssignAsset(e) {
         };
         assignments.push(assignment);
         
-        // Persist assignment to server if possible
-        const assignedOk = await assignAssetServer(category, id, employeeId);
+    // Persist assignment to server if possible
+    console.log('[handleAssignAsset] about to call assignAssetServer');
+    const assignedOk = await assignAssetServer(category, id, employeeId);
+    console.log('[handleAssignAsset] assignAssetServer returned:', assignedOk);
 
         if (!assignedOk) {
             // Fallback: update locally and save to localStorage
