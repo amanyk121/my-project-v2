@@ -311,6 +311,10 @@ function setupEventListeners() {
     
     // Asset category tabs - Use event delegation
     document.addEventListener('click', (e) => {
+        // Delegated click logging for action buttons (helpful during debugging)
+        if (e.target && e.target.classList && e.target.classList.contains('action-btn')) {
+            console.log('Action button clicked:', { classList: Array.from(e.target.classList), text: e.target.textContent });
+        }
         if (e.target.classList.contains('tab-btn')) {
             const category = e.target.dataset.category;
             showAssetCategory(category);
@@ -1820,6 +1824,7 @@ async function handleAddAsset(e) {
 }
 
 function editAsset(id, category) {
+    console.log('editAsset() called with', { id, category });
     if (currentRole !== 'admin') {
         showError('Only administrators can edit assets.');
         return;
@@ -2053,10 +2058,12 @@ function assignAsset(id, category) {
 
 // Missing function 2: changeAssetStatus  
 function changeAssetStatus(id, category) {
+    console.log('changeAssetStatus() called with', { id, category });
     editAssetStatus(id, category);
 }
 
 function quickAssignAsset(id, category) {
+    console.log('quickAssignAsset() called with', { id, category });
     // Open the modal first (it will populate the select), then set the selection
     showModal('assign-asset-modal');
 
@@ -2162,6 +2169,7 @@ async function handleAssignAsset(e) {
     const employeeId = formData.get('employeeId');
     const assignmentDate = formData.get('assignmentDate');
     const notes = formData.get('notes');
+    console.log('handleAssignAsset invoked with', { assetId, employeeId, assignmentDate, notes });
     
     if (!assetId || !employeeId) {
         showError('Please select both an asset and an employee.', NOTIFICATION_DURATION.SHORT);
